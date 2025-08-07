@@ -1,0 +1,40 @@
+FROM debian:bullseye
+
+
+RUN apt-get update && apt-get install -y \
+    python3 python3-pip \
+    cmake build-essential libssl-dev git curl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+
+RUN pip3 install --upgrade pip
+
+
+WORKDIR /tmp
+RUN git clone --branch 0.8.0 https://github.com/open-quantum-safe/liboqs && \
+    mkdir -p liboqs/build && \
+    cd liboqs/build && \
+    cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local \
+             -DBUILD_SHARED_LIBS=ON \
+             -DOQS_ENABLE_KEM_NTRU=ON && \
+    make -j$(nproc) && \
+    make install
+
+ENV LD_LIBRARY_PATH="/usr/local/lib"
+RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/liboqs.conf && ldconfig
+
+
+RUN git clone --branch 0.8.0 https://github.com/open-quantum-safe/liboqs-python && \
+    cd liboqs-python && \
+    python3 setup.py clean --all && \
+    python3 setup.py build && \
+    python3 setup.py install
+
+
+RUN pip3 install numpy scipy flask
+
+
+WORKDIR /app
+COPY . .
+
+CMD ["/bin/bash"]
